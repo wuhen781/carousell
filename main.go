@@ -6,27 +6,30 @@ import (
   "os"
   "strings"
   "time"
+  "sort"
   "strconv"
+  "encoding/csv"
+  "errors"
 )
 
 type User struct {
 	data map[string]bool
 }
 
-func (u *User) Check(name string) (errno int,errmsg string){
+func (u *User) Check(name string) (int,error){
 	if _,ok := u.data[name];ok {
-		return 0,"Success"
+		return 0,nil
 	}else{
-		return 1,"Error - unknown user"
+		return 1,errors.New("Error - unknown user")
 	}
 }
 
-func (u *User) Create(name string) (errno int,errmsg string){
+func (u *User) Create(name string) (int,error){
 	if _,ok := u.data[name];!ok {
 		u.data[name] = true
-		return 0,"Success"
+		return 0,nil
 	}else{
-		return 1,"Error - user already existing"
+		return 1, errors.New("Error - user already existing")
 	}
 }
 
@@ -56,30 +59,214 @@ func (list *Listing) Create(user,title,description,price,category string) int {
 	return id
 }
 
-func (list *Listing) Delete(user string,id int) (errno int,errmsg string) {
-return 0,""
+func (list *Listing) Delete(user string,id int) (int,error) {
+	var item *Item
+	var ok bool
+	if  item,ok = list.data[id];!ok {
+		return 1,errors.New("Error - listing does not exist")
+	}
+	if item.user != user {
+		return 2,errors.New("Error - listing owner mismatch")
+	}
+	return 0,nil
 }
 
+//return 0.0, errors.New("cannot divide through zero")
+func (list *Listing) Get(id int) (*Item,error) {
+	var item *Item
+	var ok bool
+	if  item,ok = list.data[id];!ok {
+		return nil , errors.New("Error - not found")
+	}
+	return item,nil
+} 
+
+//Phone model 8|Black color, brand new|1000|2019-02-22 12:34:56|Electronics|user1
+func (list *Listing) Show(item *Item)  {
+	fmt.Printf("%s|%s|%.2f|%s|%s|%s\n",item.title,item.description,item.price,item.createtime.Format("2006-01-02 15:04:05"),item.category,item.user)
+}
+
+type Category struct{
+	highest_name string
+	highest_count int
+	data map[string]map[int]*Item
+	count map[string]int
+}
+
+func (cat *Category) AddListing(name string,id int,item *Item)  bool {
+	if len(cat.data[name]) < 1{
+		cat.data[name] = make(map[int]*Item)
+	}
+	cat.data[name][id] = item
+	cat.count[name] ++
+	if cat.count[name] > cat.highest_count {
+		cat.highest_count = cat.count[name] 
+		cat.highest_name =  name
+	}
+	return true
+}
+
+func (cat *Category) DeleteListing(name string,id int)  bool {
+	delete(cat.data[name],id);
+	cat.count[name] --
+	//regenerate the highest_count
+	if name == cat.highest_name {
+		highest_count := 0
+		highest_name := ""
+		for k,v := range cat.count {
+			if v > highest_count {
+				highest_count = v
+				highest_name = k
+			}
+		}
+		cat.highest_name = highest_name
+		cat.highest_count = highest_count
+	}
+	return true
+}
+
+func (cat *Category) Top() string {
+	return cat.highest_name
+}
+
+func (cat *Category) Get(name string,sortkey string,order string) ([]*Item,error) {
+	arr := make([]*Item,0)
+	if items,ok := cat.data[name];ok {
+		for _,item := range items {
+			arr = append(arr,item)
+		}
+		if sortkey == "sort_price" {
+			if order == "asc" {
+				sort.Slice(arr,func (i,j int) bool {
+					return arr[i].price < arr[j].price
+				})
+			}else{
+				sort.Slice(arr,func (i,j int) bool {
+					return arr[i].price > arr[j].price
+				})
+			}
+		}else{
+			if order == "asc" {
+				sort.Slice(arr,func (i,j int) bool {
+					return arr[i].createtime.Before(arr[j].createtime)
+				})
+			}else{
+				sort.Slice(arr,func (i,j int) bool {
+					return arr[i].createtime.After(arr[j].createtime)
+				})
+			}
+		}
+		return arr,nil
+	} else {
+		return arr , errors.New("Error - category not found")
+	} 
+}
 
 func main() {
 	user  := & User{make(map[string]bool)}
 	listing := & Listing{0,make(map[int]*Item)}
+	category := & Category("",0,make(map[string]map[int]*Item),make(map[string]int))
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("#")
-		text, _ := reader.ReadString('\n')
+		text,err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+
 		// convert CRLF to LF
 		text = strings.Replace(text, "\n", "", -1)
-		params := strings.Split(text," ")
+		text = strings.Replace(text, "'", "\"", -1)
+
+		// Split string
+		r := csv.NewReader(strings.NewReader(text))
+		r.Comma = ' ' // space
+		params, err := r.Read()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 		operation := params[0]
 		if operation == "REGISTER" {
-			errno,errmsg := user.Create(params[1])	
-			fmt.Println(errno,errmsg)
+			_,err := user.Create(params[1])
+			if err != nil {
+				fmt.Println(err)
+			}else{
+				fmt.Println("Success")
+			}
 		} else if operation == "CREATE_LISTING" {//# CREATE_LISTING user1 'Phone model 8' 'Black color, brand new' 1000 'Electronics'
-			id := listing.Create(params[1],params[2],params[3],params[4],params[5])	
-			fmt.Println(id)
+			_,err := user.Check(params[1])
+			if err != nil {
+				fmt.Println(err)
+			}else{
+				id := listing.Create(params[1],params[2],params[3],params[4],params[5])
+				item,_ := listing.Get(id)
+				category.AddListing(params[5],id,item)
+				fmt.Println(id)
+			}
+		} else if operation == "DELETE_LISTING"  {
+			_,err := user.Check(params[1])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			id, err := strconv.ParseInt(params[2],10,64)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			item,err := listing.Get(int(id))
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			category.DeleteListing(item.category,id)
+			_, err = listing.Delete(params[1],int(id))
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println("Success")
+		} else if operation == "GET_LISTING"  {
+			_,err := user.Check(params[1])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			id, err := strconv.ParseInt(params[2],10,64)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			item , err := listing.Get(int(id))
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			listing.Show(item)
+		} else if operation == "GET_CATEGORY"  {
+			_,err := user.Check(params[1])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			items,err := category.Get(params[2],params[3],params[4])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		        for _,item := range items {
+				listing.Show(item)
+			}
+		} else if operation == "GET_TOP_CATEGORY"  {
+			_,err := user.Check(params[1])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println(category.Top())
 		} else {
-	fmt.Println("unknown operation")	
+			fmt.Println("unknown operation")
 		}
 	}
 }

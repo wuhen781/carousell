@@ -10,7 +10,10 @@ import (
   "strconv"
   "encoding/csv"
   "errors"
+  "github.com/wangjia184/sortedset"
 )
+
+const USED_ZSET_FOR_HIGHEST = 1
 
 type User struct {
 	data map[string]bool
@@ -68,6 +71,8 @@ func (list *Listing) Delete(user string,id int) (int,error) {
 	if item.user != user {
 		return 2,errors.New("Error - listing owner mismatch")
 	}
+	list.data[id] = nil
+	delete(list.data,id);
 	return 0,nil
 }
 
@@ -76,7 +81,7 @@ func (list *Listing) Get(id int) (*Item,error) {
 	var item *Item
 	var ok bool
 	if  item,ok = list.data[id];!ok {
-		return nil , errors.New("Error - not found")
+		return nil , errors.New("Error - listing does not exist")
 	}
 	return item,nil
 } 
@@ -91,6 +96,12 @@ type Category struct{
 	highest_count int
 	data map[string]map[int]*Item
 	count map[string]int
+	zset *sortedset.SortedSet
+}
+
+type CategoryNode struct {
+	Name string
+	Count int
 }
 
 func (cat *Category) AddListing(name string,id int,item *Item)  bool {
@@ -103,24 +114,46 @@ func (cat *Category) AddListing(name string,id int,item *Item)  bool {
 		cat.highest_count = cat.count[name] 
 		cat.highest_name =  name
 	}
+	if USED_ZSET_FOR_HIGHEST > 0 {
+		cat.zset.AddOrUpdate(name, sortedset.SCORE(cat.count[name]), CategoryNode{name,cat.count[name]})//in order to use sortedset,it cost O(logN) to insert
+	}
+	//fmt.Println(cat.count)
 	return true
 }
 
 func (cat *Category) DeleteListing(name string,id int)  bool {
 	delete(cat.data[name],id);
 	cat.count[name] --
-	//regenerate the highest_count
-	if name == cat.highest_name {
-		highest_count := 0
-		highest_name := ""
-		for k,v := range cat.count {
-			if v > highest_count {
-				highest_count = v
-				highest_name = k
-			}
+	//regenerate the highest_count By sortedset O(1)
+	if USED_ZSET_FOR_HIGHEST > 0 {
+		if cat.count[name] > 0 {
+			cat.zset.AddOrUpdate(name, sortedset.SCORE(cat.count[name]), CategoryNode{name,cat.count[name]})
+		}else{
+			cat.zset.Remove(name)
 		}
-		cat.highest_name = highest_name
-		cat.highest_count = highest_count
+		if cat.zset.GetCount() > 0 {
+			node:=cat.zset.PeekMax()
+			cat.highest_name = node.Value.(CategoryNode).Name
+			cat.highest_count =  node.Value.(CategoryNode).Count
+		}else{
+			cat.highest_name =  ""
+			cat.highest_count =  0
+		}
+	}else{
+		//regenerate the highest_count O(n)
+		if name == cat.highest_name {
+			highest_count := 0
+			highest_name := ""
+			for k,v := range cat.count {
+				if v > highest_count {
+					highest_count = v
+					highest_name = k
+				}
+			}
+			cat.highest_name = highest_name
+			cat.highest_count = highest_count
+			//fmt.Println(cat.count)
+		}
 	}
 	return true
 }
@@ -164,11 +197,13 @@ func (cat *Category) Get(name string,sortkey string,order string) ([]*Item,error
 
 func main() {
 	user  := & User{make(map[string]bool)}
-	listing := & Listing{0,make(map[int]*Item)}
-	category := & Category("",0,make(map[string]map[int]*Item),make(map[string]int))
+	listing := & Listing{100000,make(map[int]*Item)}
+	category := & Category{"",0,make(map[string]map[int]*Item),make(map[string]int),sortedset.New()}
 	reader := bufio.NewReader(os.Stdin)
+	cnt := 0
 	for {
-		fmt.Print("#")
+		cnt ++
+		//fmt.Printf("#%d",cnt)
 		text,err := reader.ReadString('\n')
 		if err != nil {
 			return
@@ -200,8 +235,10 @@ func main() {
 				fmt.Println(err)
 			}else{
 				id := listing.Create(params[1],params[2],params[3],params[4],params[5])
-				item,_ := listing.Get(id)
-				category.AddListing(params[5],id,item)
+				item,err := listing.Get(id)
+				if err == nil {
+					category.AddListing(params[5],id,item)
+				}
 				fmt.Println(id)
 			}
 		} else if operation == "DELETE_LISTING"  {
@@ -220,12 +257,12 @@ func main() {
 				fmt.Println(err)
 				continue
 			}
-			category.DeleteListing(item.category,id)
 			_, err = listing.Delete(params[1],int(id))
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
+			category.DeleteListing(item.category,int(id))
 			fmt.Println("Success")
 		} else if operation == "GET_LISTING"  {
 			_,err := user.Check(params[1])

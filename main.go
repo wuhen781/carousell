@@ -152,6 +152,7 @@ func (cat *Category) DeleteListing(name string,id int)  bool {
 			cat.highest_name = highest_name
 			cat.highest_count = highest_count
 		}
+		//fmt.Println(cat.count)
 	}
 	return true
 }
@@ -201,7 +202,7 @@ func main() {
 	cnt := 0//input count
 	for {
 		cnt ++
-		fmt.Printf("#%d")
+		fmt.Printf("#")
 		text,err := reader.ReadString('\n')
 		if err != nil {
 			return
@@ -233,7 +234,7 @@ func main() {
 			}else{
 				id := listing.Create(params[1],params[2],params[3],params[4],params[5])
 				item,err := listing.Get(id)
-				if err == nil {
+				if err != nil {
 					fmt.Println(err)
 					continue
 				}

@@ -13,7 +13,8 @@ import (
   "github.com/wangjia184/sortedset"
 )
 
-const USED_ZSET_FOR_HIGHEST = 1
+//You can set it to 1 if delete_listing happens frequently
+const USED_ZSET_FOR_HIGHEST = 0
 
 type User struct {
 	data map[string]bool
@@ -71,12 +72,11 @@ func (list *Listing) Delete(user string,id int) (int,error) {
 	if item.user != user {
 		return 2,errors.New("Error - listing owner mismatch")
 	}
-	list.data[id] = nil
+	list.data[id] = nil//to free the memory
 	delete(list.data,id);
 	return 0,nil
 }
 
-//return 0.0, errors.New("cannot divide through zero")
 func (list *Listing) Get(id int) (*Item,error) {
 	var item *Item
 	var ok bool
@@ -86,7 +86,7 @@ func (list *Listing) Get(id int) (*Item,error) {
 	return item,nil
 } 
 
-//Phone model 8|Black color, brand new|1000|2019-02-22 12:34:56|Electronics|user1
+//format:Phone model 8|Black color, brand new|1000|2019-02-22 12:34:56|Electronics|user1
 func (list *Listing) Show(item *Item)  {
 	fmt.Printf("%s|%s|%.2f|%s|%s|%s\n",item.title,item.description,item.price,item.createtime.Format("2006-01-02 15:04:05"),item.category,item.user)
 }
@@ -117,15 +117,14 @@ func (cat *Category) AddListing(name string,id int,item *Item)  bool {
 	if USED_ZSET_FOR_HIGHEST > 0 {
 		cat.zset.AddOrUpdate(name, sortedset.SCORE(cat.count[name]), CategoryNode{name,cat.count[name]})//in order to use sortedset,it cost O(logN) to insert
 	}
-	//fmt.Println(cat.count)
 	return true
 }
 
 func (cat *Category) DeleteListing(name string,id int)  bool {
 	delete(cat.data[name],id);
 	cat.count[name] --
-	//regenerate the highest_count By sortedset O(1)
 	if USED_ZSET_FOR_HIGHEST > 0 {
+		//regenerate the highest_count By sortedset O(1)
 		if cat.count[name] > 0 {
 			cat.zset.AddOrUpdate(name, sortedset.SCORE(cat.count[name]), CategoryNode{name,cat.count[name]})
 		}else{
@@ -152,7 +151,6 @@ func (cat *Category) DeleteListing(name string,id int)  bool {
 			}
 			cat.highest_name = highest_name
 			cat.highest_count = highest_count
-			//fmt.Println(cat.count)
 		}
 	}
 	return true
@@ -200,16 +198,15 @@ func main() {
 	listing := & Listing{100000,make(map[int]*Item)}
 	category := & Category{"",0,make(map[string]map[int]*Item),make(map[string]int),sortedset.New()}
 	reader := bufio.NewReader(os.Stdin)
-	cnt := 0
+	cnt := 0//input count
 	for {
 		cnt ++
-		//fmt.Printf("#%d",cnt)
+		fmt.Printf("#%d")
 		text,err := reader.ReadString('\n')
 		if err != nil {
 			return
 		}
 
-		// convert CRLF to LF
 		text = strings.Replace(text, "\n", "", -1)
 		text = strings.Replace(text, "'", "\"", -1)
 
@@ -229,7 +226,7 @@ func main() {
 			}else{
 				fmt.Println("Success")
 			}
-		} else if operation == "CREATE_LISTING" {//# CREATE_LISTING user1 'Phone model 8' 'Black color, brand new' 1000 'Electronics'
+		} else if operation == "CREATE_LISTING" {//input:CREATE_LISTING user1 'Phone model 8' 'Black color, brand new' 1000 'Electronics'
 			_,err := user.Check(params[1])
 			if err != nil {
 				fmt.Println(err)
@@ -237,8 +234,10 @@ func main() {
 				id := listing.Create(params[1],params[2],params[3],params[4],params[5])
 				item,err := listing.Get(id)
 				if err == nil {
-					category.AddListing(params[5],id,item)
+					fmt.Println(err)
+					continue
 				}
+				category.AddListing(params[5],id,item)
 				fmt.Println(id)
 			}
 		} else if operation == "DELETE_LISTING"  {

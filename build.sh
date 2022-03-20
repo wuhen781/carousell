@@ -1,7 +1,7 @@
 #!/bin/bash
 go mod tidy
 go build main.go
-if [$? -ne 0]
+if [ $? -ne 0 ]
 	then
 echo " build fails, you can also directly run the compiled binary(main)" 
 	else

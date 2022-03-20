@@ -63,25 +63,26 @@ func (list *Listing) Create(user,title,description,price,category string) int {
 	return id
 }
 
-func (list *Listing) Delete(user string,id int) (int,error) {
+func (list *Listing) Delete(user string,id int) (string,error) {
 	var item *Item
 	var ok bool
 	if  item,ok = list.data[id];!ok {
-		return 1,errors.New("Error - listing does not exist")
+		return "",errors.New("Error - listing does not exist")
 	}
 	if item.user != user {
-		return 2,errors.New("Error - listing owner mismatch")
+		return "",errors.New("Error - listing owner mismatch")
 	}
+	catname := list.data[id].category
 	list.data[id] = nil//to free the memory
 	delete(list.data,id);
-	return 0,nil
+	return catname,nil
 }
 
 func (list *Listing) Get(id int) (*Item,error) {
 	var item *Item
 	var ok bool
 	if  item,ok = list.data[id];!ok {
-		return nil , errors.New("Error - listing does not exist")
+		return nil , errors.New("Error - not found")
 	}
 	return item,nil
 } 
@@ -163,10 +164,10 @@ func (cat *Category) Top() string {
 
 func (cat *Category) Get(name string,sortkey string,order string) ([]*Item,error) {
 	arr := make([]*Item,0)
-	if items,ok := cat.data[name];ok {
-		for _,item := range items {
-			arr = append(arr,item)
-		}
+	for _,item := range cat.data[name] {
+		arr = append(arr,item)
+	}
+	if len(arr) > 0 {
 		if sortkey == "sort_price" {
 			if order == "asc" {
 				sort.Slice(arr,func (i,j int) bool {
@@ -191,7 +192,7 @@ func (cat *Category) Get(name string,sortkey string,order string) ([]*Item,error
 		return arr,nil
 	} else {
 		return arr , errors.New("Error - category not found")
-	} 
+	}
 }
 
 func main() {
@@ -207,11 +208,10 @@ func main() {
 		if err != nil {
 			return
 		}
-
 		text = strings.Replace(text, "\n", "", -1)
 		text = strings.Replace(text, "'", "\"", -1)
 
-		// Split string
+		// Split string by "
 		r := csv.NewReader(strings.NewReader(text))
 		r.Comma = ' ' // space
 		params, err := r.Read()
@@ -252,17 +252,12 @@ func main() {
 				fmt.Println(err)
 				continue
 			}
-			item,err := listing.Get(int(id))
+			catname,err := listing.Delete(params[1],int(id))
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			_, err = listing.Delete(params[1],int(id))
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			category.DeleteListing(item.category,int(id))
+			category.DeleteListing(catname,int(id))
 			fmt.Println("Success")
 		} else if operation == "GET_LISTING"  {
 			_,err := user.Check(params[1])
@@ -292,8 +287,9 @@ func main() {
 				fmt.Println(err)
 				continue
 			}
-		        for _,item := range items {
-				listing.Show(item)
+			length := len(items)
+			for i:=0;i<length;i++ {
+				listing.Show(items[i])
 			}
 		} else if operation == "GET_TOP_CATEGORY"  {
 			_,err := user.Check(params[1])

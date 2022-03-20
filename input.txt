@@ -1,6 +1,51 @@
 REGISTER user1
-REGISTER user2
+REGISTER user1
 CREATE_LISTING user1 'Black shoes1' 'Training shoes' 100 'Sports'
+CREATE_LISTING user2 'Black shoes1' 'Training shoes' 100 'Sports'
+GET_LISTING user1 100001
+GET_LISTING user2 100001
+REGISTER user2
+DELETE_LISTING user2 100001
+DELETE_LISTING user1 100001
+DELETE_LISTING user1 100001
+GET_LISTING user1 100001
+GET_CATEGORY user3 Sports sort_time asc
+GET_CATEGORY user2 Sports sort_time asc
+GET_TOP_CATEGORY user3
+CREATE_LISTING user1 'Black shoes1' 'Training shoes' 100 'Sports'
+CREATE_LISTING user1 'Black shoes2' 'Training shoes' 200 'Sports'
+CREATE_LISTING user1 'Black shoes3' 'Training shoes' 300 'Sports'
+CREATE_LISTING user1 'Black shoes4' 'Training shoes' 300.01 'Sports'
+CREATE_LISTING user1 'Black shoes5' 'Training shoes' 300.02 'Sports'
+CREATE_LISTING user2 'Phone model 1' 'Black color, brand new' 1000 'Electronics'
+CREATE_LISTING user2 'Phone model 2' 'Black color, brand new' 2000 'Electronics'
+GET_CATEGORY user1 Sports sort_time asc
+GET_CATEGORY user1 Sports sort_time desc
+GET_CATEGORY user1 Sports price_time asc
+GET_CATEGORY user1 Sports price_time desc
+GET_CATEGORY user1 Electronics sort_time asc
+GET_CATEGORY user1 Electronics sort_time desc
+GET_CATEGORY user1 Electronics price_time asc
+GET_CATEGORY user1 Electronics price_time desc
+GET_TOP_CATEGORY user1
+DELETE_LISTING user1 100002
+DELETE_LISTING user1 100003
+DELETE_LISTING user1 100004
+DELETE_LISTING user1 100005
+GET_TOP_CATEGORY user1
+CREATE_LISTING user2 'Phone model 3' 'Black color, brand new' 3000 'Electronics'
+GET_TOP_CATEGORY user1
+DELETE_LISTING user2 100007
+GET_TOP_CATEGORY user1
+DELETE_LISTING user2 100008
+GET_TOP_CATEGORY user1
+CREATE_LISTING user2 'Phone model 4' 'Black color, brand new' 4000 'Electronics'
+GET_TOP_CATEGORY user1
+CREATE_LISTING user2 'Phone model 5' 'Black color, brand new' 5000 'Electronics'
+GET_TOP_CATEGORY user1
+
+
+REGISTER user2
 CREATE_LISTING user1 'Black shoes2' 'Training shoes' 200 'Sports'
 CREATE_LISTING user1 'Black shoes3' 'Training shoes' 300 'Sports'
 CREATE_LISTING user2 'Phone model 1' 'Black color, brand new' 1000 'Electronics'
@@ -19,10 +64,6 @@ CREATE_LISTING user1 'Black shoes5' 'Training shoes' 500 'Sports'
 GET_TOP_CATEGORY user1
 GET_CATEGORY user1 'Sports' sort_time asc
 GET_CATEGORY user1 'Sports' sort_time desc
-CREATE_LISTING user1 'Black shoes1' 'Training shoes' 100 'Sports'
-CREATE_LISTING user1 'Black shoes2' 'Training shoes' 200 'Sports'
-CREATE_LISTING user2 'Phone model 1' 'Black color, brand new' 1000 'Electronics'
-CREATE_LISTING user2 'Phone model 2' 'Black color, brand new' 1000 'Electronics'
 GET_CATEGORY user1 'Sports' sort_time asc
 GET_CATEGORY user1 'Sports' sort_time desc
 GET_CATEGORY user2 'Sports' sort_price asc
@@ -31,5 +72,4 @@ GET_CATEGORY user3 'Sports' sort_price desc
 GET_TOP_CATEGORY user2
 GET_TOP_CATEGORY user3
 CREATE_LISTING user2 'Phone model 2' 'Black color, brand new' 1000 'Electronics'
-GET_TOP_CATEGORY user2
 GET_TOP_CATEGORY user2
